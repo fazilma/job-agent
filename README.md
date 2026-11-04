@@ -162,7 +162,8 @@ What lives where:
 
 | On the Mac | In the container |
 |---|---|
-| `config.yaml`, `.env`, `data/`, `logs/` | `/app/...` (same files) |
+| `.env`, `data/`, `logs/` | `/app/...` (same files) |
+| `config.yaml` | `/host/config.yaml` (the project folder, read-only) |
 | `/Users/fazil/Resume` | `/Users/fazil/Resume` (same path, so resume paths match) |
 | `docker/skills/` | Claude Code's skills folder |
 

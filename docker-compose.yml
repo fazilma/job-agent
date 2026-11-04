@@ -14,10 +14,12 @@ services:
       # Local skill copies have no "anthropic-skills:" prefix.
       JOBAGENT_TAILOR_SKILL: tailor-resume
       JOBAGENT_IMPACT_SKILL: resume-impact-pass
+      JOBAGENT_CONFIG: /host/config.yaml
     ports:
       - "127.0.0.1:8765:8765"        # dashboard: http://localhost:8765 (this Mac only)
     volumes:
-      - ./config.yaml:/app/config.yaml
+      # The folder, not the file: a mounted file goes missing here when an editor replaces it.
+      - .:/host:ro
       - ./.env:/app/.env:ro
       - ./data:/app/data             # jobs.db, shared with `uv run jobagent ...` on the Mac
       - ./logs:/app/logs

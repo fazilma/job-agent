@@ -81,5 +81,84 @@ def test_rate_limit_pauses_once_then_stops_with_what_it_has(cfg):
         return httpx.Response(429)
 
     jobs = lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=sleeps.append)
-    assert len(jobs) == 10 and 60 in sleeps                 # paused once, then kept page 1's jobs
-    assert all(j.description == "" for j in jobs)           # stopped before reading descriptions
+    assert 60 in sleeps                                     # paused once
+    assert jobs == []                                       # no descriptions yet: still new next run, so read then
+
+
+def search_cfg(cfg, *keywords, **extra):
+    cfg["sources"]["linkedin_public"].update(urls=[], searches=[{"keywords": k} for k in keywords], **extra)
+
+
+def test_search_timeout_keeps_the_other_searches(cfg):
+    search_cfg(cfg, "bad", "good")
+
+    def handler(req):
+        if req.url.params.get("keywords") == "bad":
+            raise httpx.ReadTimeout("The read operation timed out")
+        if "seeMoreJobPostings" in req.url.path:
+            return httpx.Response(200, text=card(7000000000, "Senior Backend Engineer", "Acme"))
+        return httpx.Response(200, text=DETAIL)
+
+    jobs = lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=lambda s: None)
+    assert [j.company for j in jobs] == ["Acme"] and "Kafka" in jobs[0].description
+
+
+def test_every_search_failing_reaches_the_circuit_breaker(cfg):
+    search_cfg(cfg, "a", "b")
+
+    def handler(req):
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    with pytest.raises(RuntimeError, match="timed out"):
+        lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=lambda s: None)
+
+
+def test_time_limit_hands_back_results_before_the_cut_off(cfg):
+    search_cfg(cfg, "a", "b", "c", max_seconds=10)
+    now = [0.0]
+    searches = []
+
+    def handler(req):
+        now[0] += 4
+        if "seeMoreJobPostings" in req.url.path:
+            searches.append(req.url.params["keywords"])
+            i = len(searches)
+            return httpx.Response(200, text=card(7000000000 + i, "Senior Backend Engineer", f"C{i}"))
+        return httpx.Response(200, text=DETAIL)
+
+    jobs = lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=lambda s: None,
+                      clock=lambda: now[0])
+    assert len(searches) == 2                               # stopped searching at 6s of 10s
+    assert len(jobs) == 1 and "Kafka" in jobs[0].description    # the other one waits for its description
+
+
+def test_details_cap_leaves_the_rest_for_next_run(cfg):
+    search_cfg(cfg, "a", details_per_run=1)
+
+    def handler(req):
+        if "seeMoreJobPostings" in req.url.path:
+            return httpx.Response(200, text=card(7100000000, "Senior Backend Engineer", "A") +
+                                  card(7200000000, "Senior Backend Engineer", "B") + card(7300000000, "Data Analyst", "C"))
+        return httpx.Response(200, text=DETAIL)
+
+    jobs = lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=lambda s: None)
+    assert sorted(j.company for j in jobs) == ["A", "C"]    # B waits; C fails the title rules, so it needs none
+
+
+def test_searches_rotate_daily(cfg, monkeypatch):
+    search_cfg(cfg, "a", "b", "c")
+
+    class Day:
+        @staticmethod
+        def today():
+            return type("D", (), {"toordinal": staticmethod(lambda: 4)})
+
+    monkeypatch.setattr(lp, "date", Day)
+    seen = []
+
+    def handler(req):
+        seen.append(req.url.params.get("keywords"))
+        return httpx.Response(200, text="")
+
+    lp.collect(cfg, client=httpx.Client(transport=httpx.MockTransport(handler)), sleep=lambda s: None)
+    assert seen == ["b", "c", "a"]
