@@ -175,25 +175,29 @@ def collect_nodesk(cfg, raw_dir: Path | None = None) -> list[RawJob]:
 # ---------------------------------------------------------------- Jobspresso
 
 def collect_jobspresso(cfg, raw_dir: Path | None = None) -> list[RawJob]:
-    """Standard WP Job Manager feed: <job_listing:company>, <job_listing:location>."""
-    c = _section(cfg, "jobspresso")
-    params = {"feed": "job_feed"}
-    if c.get("category"):
-        params["job_categories"] = c["category"]
+    """Standard WP Job Manager feed: <job_listing:company>, <job_listing:location>.
+    Searched by keyword: the site has no job categories any more, and its plain feed is mostly non-technical."""
+    out, seen = [], set()
     with http_client() as client:
-        r = client.get("https://jobspresso.co/", params=params)
-        r.raise_for_status()
-    save_raw(raw_dir, "jobspresso", r.text)
-    out = []
-    for it in _rss_items(r.content):
-        link = it.get("link", "")
-        where = it.get("location") or "Worldwide"
-        out.append(RawJob(
-            source="jobspresso", external_id=link, title=it.get("title", ""),
-            company=it.get("company", "") or it.get("creator", ""), location=f"Remote ({where})",
-            remote=True, url=link, apply_url=link,
-            description=html_to_text(it.get("encoded") or it.get("description")),
-            posted_at=to_iso(it.get("pubdate"))))
+        for keyword in ("engineer", "developer"):
+            for page in (1, 2):
+                r = client.get("https://jobspresso.co/", params={"feed": "job_feed", "search_keywords": keyword, "paged": page})
+                if r.status_code == 404:        # past the last page
+                    break
+                r.raise_for_status()
+                save_raw(raw_dir, f"jobspresso_{keyword}_{page}", r.text)
+                for it in _rss_items(r.content):
+                    link = it.get("link", "")
+                    if link in seen:
+                        continue
+                    seen.add(link)
+                    where = it.get("location") or "Worldwide"
+                    out.append(RawJob(
+                        source="jobspresso", external_id=link, title=it.get("title", ""),
+                        company=it.get("company", "") or it.get("creator", ""), location=f"Remote ({where})",
+                        remote=True, url=link, apply_url=link,
+                        description=html_to_text(it.get("encoded") or it.get("description")),
+                        posted_at=to_iso(it.get("pubdate"))))
     log.info("jobspresso: %d jobs", len(out))
     return out
 

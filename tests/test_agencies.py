@@ -87,6 +87,7 @@ def transport(pages=PAGES, hits=None):
 def cfg(tmp_path, monkeypatch):
     c = Config(json.loads(json.dumps(load_config())))
     c["paths"]["db"] = str(tmp_path / "jobs.db")
+    c["sources"]["agencies"]["sites"] = list(agencies.SITES)    # every collector, whatever config.yaml switches on
     c["sources"]["agencies"]["delay_seconds"] = [0, 0]
     c["sources"]["agencies"]["salt_keywords"] = ["developer"]
     monkeypatch.setattr(agencies, "http_client", lambda: httpx.Client(transport=transport(), follow_redirects=True))
@@ -176,6 +177,20 @@ def test_smartrecruiters_talabat():
     assert "Kafka" in jobs[0].description and "Java" in jobs[0].description
     assert jobs[0].apply_url.endswith("/744/apply") and jobs[0].location == "Dubai, AE"
     assert jobs[1].description == ""                                     # irrelevant title: no detail fetch
+
+
+def test_michaelpage_404_past_last_page_keeps_jobs(cfg, monkeypatch):
+    tile = '<h3><a href="/job-detail/senior-backend-developer-{0}/ref/jn-102026-{0}">Senior Backend Developer {0}</a></h3>'
+
+    def handler(req):
+        page = req.url.params.get("page")
+        if "/jobs/technology" not in req.url.path:
+            return httpx.Response(200, text="<html></html>")
+        return httpx.Response(404, text="gone") if page == "2" else httpx.Response(200, text=tile.format(page))
+
+    monkeypatch.setattr(agencies, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    jobs = agencies.collect(cfg, None, sites=["michaelpage"])
+    assert sorted(j.external_id for j in jobs) == ["jn-102026-0", "jn-102026-1"]
 
 
 def test_blank_location_on_uae_only_site_means_uae(cfg, monkeypatch):

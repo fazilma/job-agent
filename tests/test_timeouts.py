@@ -36,10 +36,10 @@ def test_adaptive_uses_median_and_clamps():
 def test_source_timeout_from_history(cfg):
     conn = db.connect(cfg.path("db"))
     now = datetime.now(timezone.utc)
-    for i, secs in enumerate([30, 35, 40, 5000]):                           # 5000 = old reading incl. sleep
+    for i, secs in enumerate([50, 55, 60, 5000]):                           # 5000 = old reading incl. sleep
         add_run(conn, now - timedelta(days=i), {"agencies": {"jobs": 5, "secs": secs},
                                                  "linkedin": {"jobs": 9, "secs": 50}})
-    assert timeouts.source_timeout(conn, cfg, "agencies") == 105             # 3 x median(30, 35, 40)
+    assert timeouts.source_timeout(conn, cfg, "agencies") == 165             # 3 x median(50, 55, 60)
     assert timeouts.source_timeout(conn, cfg, "linkedin") == 600             # Apify floor, not 150
     assert timeouts.source_timeout(conn, cfg, "brand_new") == 900            # no history: the cap
 

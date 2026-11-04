@@ -104,7 +104,7 @@ def source_floor(cfg, name: str) -> float:
     if name in APIFY_SOURCES:
         per_search = float(cfg.section("apify", "max_seconds_per_search", default=240))
         return per_search * 2 + 120                     # same as the per-search deadline inside
-    return 60
+    return 120                                          # one slow day must not cost a source its results
 
 
 def source_timeout(conn, cfg, name: str) -> float:

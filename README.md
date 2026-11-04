@@ -218,8 +218,8 @@ Click **System** at the top of the dashboard (or open http://localhost:8765/syst
 
 Every step gets a time limit learned from its own history: **3 times its usual time** (the
 median of its recent successful runs; the median, so one freak slow run doesn't stretch it).
-For example, if Himalayas usually takes 20s, it's cut off after 60s, not 15 minutes. Minimums
-keep this safe: 1 minute per source, 10 minutes for the Apify sources (LinkedIn, Bayt,
+For example, if a source usually takes 60s, it's cut off after 3 minutes, not 15. Minimums
+keep this safe: 2 minutes per source, 10 minutes for the Apify sources (LinkedIn, Bayt,
 NaukriGulf; stopping them early wouldn't stop the paid search on Apify), 2 minutes per scoring
 call and 15 minutes per tailoring.
 

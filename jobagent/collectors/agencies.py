@@ -338,7 +338,13 @@ def michaelpage(ctx: Ctx) -> list[RawJob]:
     ref_re = re.compile(r"(jn-\d+-\d+)", re.I)
     jobs, seen, budget = [], set(), [ctx.max_details]
     for page in range(0, ctx.max_pages):                    # 0-indexed on Michael Page
-        soup = BeautifulSoup(ctx.get(f"{base}/jobs/technology", params={"page": page}).text, "html.parser")
+        try:
+            html_text = ctx.get(f"{base}/jobs/technology", params={"page": page}).text
+        except httpx.HTTPStatusError as e:
+            if page and e.response.status_code == 404:      # past the last page: keep what we have
+                break
+            raise
+        soup = BeautifulSoup(html_text, "html.parser")
         tiles = soup.select("h3 a[href*='/job-detail/'], a[href*='/job-detail/']")
         new = 0
         for a in tiles:

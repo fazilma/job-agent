@@ -106,10 +106,20 @@ def test_jobspresso_wp_job_manager_feed(cfg, monkeypatch):
     seen = []
     mock(monkeypatch, {"jobspresso.co": httpx.Response(200, content=JOBSPRESSO)}, seen)
     jobs = rb.collect_jobspresso(cfg)
-    assert seen[0].url.params["feed"] == "job_feed"
+    assert seen[0].url.params["feed"] == "job_feed" and seen[0].url.params["search_keywords"] == "engineer"
+    assert {r.url.params["search_keywords"] for r in seen} == {"engineer", "developer"} and len(seen) == 4
+    assert len(jobs) == 1                                               # the same posting on every page is kept once
     j = jobs[0]
     assert (j.company, j.location, j.description) == ("Acme", "Remote (Anywhere)", "React and Node.")
     assert keep(cfg, j)
+
+
+def test_jobspresso_404_past_last_page_keeps_jobs(cfg, monkeypatch):
+    def handler(req):
+        return httpx.Response(404) if req.url.params["paged"] == "2" else httpx.Response(200, content=JOBSPRESSO)
+
+    monkeypatch.setattr(rb, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    assert len(rb.collect_jobspresso(cfg)) == 1
 
 
 def test_remoterocketship_needs_key_and_skips_sandbox(cfg, monkeypatch):
