@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Tracker</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e4e2da;
+  --accent: #1f5f8b; --accent-ink: #ffffff;
+  --good-bg: #e3f1e4; --good: #24683a; --mid-bg: #fbf0d9; --mid: #8a5a07; --low-bg: #eeede8; --low: #5f5e5a;
+  --warn-bg: #fdebe6; --warn: #a1381c; --chip: #efede6;
+  --radius: 8px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f98; --line: #34332f;
+    --accent: #6aa9d6; --accent-ink: #0d1b26;
+    --good-bg: #1d3323; --good: #8fd3a0; --mid-bg: #3a2c10; --mid: #f0c36a; --low-bg: #2a2a27; --low: #b4b2a9;
+    --warn-bg: #3d1f16; --warn: #f0a08a; --chip: #2b2b28;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+.top { display: flex; align-items: center; gap: 16px; padding: 14px 0 10px; flex-wrap: wrap; }
+h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.meta { color: var(--muted); font-size: 12px; }
+.spacer { flex: 1; }
+input[type=search] { background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 7px 10px; width: 240px; font: inherit; }
+label.toggle { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; cursor: pointer; }
+button { font: inherit; cursor: pointer; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); padding: 6px 11px; white-space: nowrap; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
+button.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+button.ghost:hover { color: var(--ink); background: var(--chip); }
+button:disabled { opacity: .5; cursor: default; }
+nav { display: flex; gap: 2px; overflow-x: auto; }
+nav button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+  padding: 8px 12px; color: var(--muted); }
+nav button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+nav .n { font-variant-numeric: tabular-nums; margin-left: 4px; font-size: 12px; }
+main.wrap { padding-top: 16px; padding-bottom: 60px; }
+.addbox { display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 14px; }
+.addbox.open { display: block; }
+.addbox .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.addbox input, .addbox textarea { background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 7px 10px; font: inherit; }
+.addbox input { flex: 1; min-width: 200px; }
+.addbox .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+.addbox .msg { margin-top: 8px; font-size: 13px; }
+@media (max-width: 760px) { .addbox .grid { grid-template-columns: 1fr; } }
+.banner { background: var(--mid-bg); color: var(--mid); border-radius: var(--radius); padding: 10px 14px;
+  margin-bottom: 14px; }
+.banner .row { display: flex; align-items: center; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+.banner .row b { color: var(--ink); font-weight: 500; }
+.job { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+.job-main { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; padding: 12px 14px; align-items: start; }
+.score { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; border-radius: 6px;
+  text-align: center; padding: 6px 0; }
+.s-good { background: var(--good-bg); color: var(--good); }
+.s-mid { background: var(--mid-bg); color: var(--mid); }
+.s-low, .s-none { background: var(--low-bg); color: var(--low); }
+.title { font-weight: 600; font-size: 15px; cursor: pointer; }
+.title:hover { text-decoration: underline; }
+.sub { color: var(--muted); font-size: 13px; }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.chip { background: var(--chip); color: var(--muted); border-radius: 4px; padding: 1px 6px; font-size: 11.5px; }
+.chip.flag { background: var(--warn-bg); color: var(--warn); }
+.chip.ok { background: var(--good-bg); color: var(--good); }
+.chip.gig { background: var(--mid-bg); color: var(--mid); }
+.reasons { margin: 6px 0 0; padding-left: 16px; color: var(--muted); font-size: 12.5px; }
+.actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; max-width: 330px; }
+.details { border-top: 1px solid var(--line); padding: 12px 14px 14px 80px; display: none; }
+.details.open { display: block; }
+.desc { white-space: pre-wrap; font-size: 13px; max-height: 360px; overflow: auto; color: var(--ink);
+  background: var(--bg); padding: 10px 12px; border-radius: var(--radius); }
+.hist { font-size: 12px; color: var(--muted); margin-top: 10px; }
+textarea { width: 100%; min-height: 54px; font: inherit; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin-top: 10px; }
+.skipbox { display: none; gap: 6px; flex-wrap: wrap; padding: 0 14px 12px 80px; }
+.skipbox.open { display: flex; }
+.skipbox input { flex: 1; min-width: 160px; background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 6px 8px; font: inherit; }
+table.jobs { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; font-size: 13.5px; }
+table.jobs th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 9px 10px;
+  border-bottom: 1px solid var(--line); white-space: nowrap; cursor: pointer; user-select: none; }
+table.jobs th.nosort { cursor: default; }
+table.jobs th .arrow { opacity: .6; }
+table.jobs td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.jobs tr:last-child td { border-bottom: 0; }
+table.jobs tr.filtered td { opacity: .62; }
+table.jobs td.sc { width: 52px; }
+table.jobs td.sc .score { font-size: 13px; padding: 3px 0; }
+table.jobs a.role { color: var(--ink); font-weight: 500; text-decoration: none; }
+table.jobs a.role:hover { text-decoration: underline; }
+table.jobs a.ext { color: var(--accent); text-decoration: none; white-space: nowrap; }
+table.jobs .muted { color: var(--muted); }
+.tablebar { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+.scroll { overflow-x: auto; }
+.empty { text-align: center; color: var(--muted); padding: 60px 0; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+  padding: 8px 14px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+@media (max-width: 760px) {
+  .job-main { grid-template-columns: 44px 1fr; }
+  .actions { grid-column: 1 / -1; justify-content: flex-start; max-width: none; }
+  .details, .skipbox { padding-left: 14px; }
+  input[type=search] { width: 100%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>Job Tracker</h1>
+      <span class="meta" id="lastrun"></span>
+      <span class="spacer"></span>
+      <input type="search" id="q" placeholder="Search title, company, location">
+      <label class="toggle"><input type="checkbox" id="strong"> Only strong matches</label>
+      <label class="toggle" title="Jobs with a tailored resume PDF ready to send"><input type="checkbox" id="ready"> Resume ready <span class="n" id="readyn"></span></label>
+      <label class="toggle" title="Contract AI-training work (writing coding tasks, reviewing AI output). Kept out of strong matches and automatic tailoring."><input type="checkbox" id="gigs"> AI gigs <span class="n" id="gigsn"></span></label>
+      <button id="addbtn" title="Add a job from its link (LinkedIn or any job page)">+ Add job</button>
+      <button id="runbtn">Run now</button>
+      <a href="/system" title="Schedule, run history, logs, usage, maintenance"><button>System</button></a>
+    </div>
+    <nav id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap">
+  <div id="addbox" class="addbox"></div>
+  <div id="banner"></div>
+  <div id="list"></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const TABS = [
+  ["all", "All jobs"], ["new", "New today"], ["active", "Active"], ["applied", "Applied"], ["skipped", "Skipped"], ["closed", "Closed"],
+];
+const SKIP_REASONS = ["Wrong stack", "Too junior", "Location", "Not my domain", "Agency / recruiter", "Already applied elsewhere",
+  "Job no longer available"];
+const NOT_AVAILABLE = /no longer (available|open|accepting)|not available|expired|closed|filled|removed|taken down|job not found|no longer exists/i;
+let state = { tab: localGet("tab") || "all", q: "", strong: localGet("strong") === "1", data: null, open: new Set(),
+  showFiltered: localGet("filtered") === "1", sort: { key: "score", dir: -1 },
+  ready: localGet("ready") === "1", gigs: localGet("gigs") === "1" };
+
+function localGet(k) { try { return localStorage.getItem("ja_" + k); } catch { return null; } }
+function localSet(k, v) { try { localStorage.setItem("ja_" + k, v); } catch {} }
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200); }
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function ago(iso) {
+  if (!iso) return "";
+  const d = (Date.now() - new Date(iso)) / 86400000;
+  if (d < 1) return "today"; if (d < 2) return "yesterday"; return Math.floor(d) + "d ago";
+}
+
+async function load() {
+  const p = new URLSearchParams({ tab: state.tab, q: state.q });
+  if (state.strong) p.set("min_score", 70);
+  if (state.tab === "all" && state.showFiltered) p.set("include_filtered", "true");
+  if (state.ready) p.set("resume_ready", "true");
+  if (state.gigs) p.set("gigs_only", "true");
+  state.data = await api("/api/jobs?" + p);
+  render();
+}
+
+function render() {
+  const d = state.data;
+  document.getElementById("tabs").innerHTML = TABS.map(([k, label]) =>
+    `<button class="${k === state.tab ? "on" : ""}" data-tab="${k}">${label}<span class="n">${d.counts[k] ?? 0}</span></button>`).join("");
+  const lr = d.last_run;
+  let meta = lr ? `Last run ${ago(lr.finished_at)}` : "No runs yet";
+  if (lr && lr.stats) { try { const s = JSON.parse(lr.stats); meta += ` · ${s.new ?? 0} new, ${s.tailored ?? 0} tailored`; } catch {} }
+  if (d.running) meta = "Running now…";
+  document.getElementById("lastrun").textContent = meta;
+  document.getElementById("runbtn").disabled = d.running;
+  document.getElementById("readyn").textContent = d.counts.resume_ready ? `(${d.counts.resume_ready})` : "";
+  document.getElementById("gigsn").textContent = d.counts.gigs ? `(${d.counts.gigs})` : "";
+
+  document.getElementById("banner").innerHTML = d.pending.length ? `<div class="banner">
+    <div style="margin-bottom:4px">You opened these. Did you submit?</div>
+    ${d.pending.map(p => `<div class="row"><b>${esc(p.title)}</b> · ${esc(p.company)}
+      <span class="spacer"></span>
+      <button data-act="status" data-id="${p.id}" data-status="applied">Yes, applied</button>
+      <button class="ghost" data-act="status" data-id="${p.id}" data-status="active">Not yet</button></div>`).join("")}
+  </div>` : "";
+
+  const list = document.getElementById("list");
+  if (!d.jobs.length && state.tab === "all") { list.innerHTML = table([], d.counts.filtered); return; }
+  if (!d.jobs.length) {
+    const msg = state.ready ? "No jobs in this tab have a tailored resume yet. Click Tailor on a job to make one." : { new: "Nothing new from the latest run.", active: "No active jobs. Run the agent to collect some.",
+      applied: "Nothing applied yet.", skipped: "Nothing skipped.", closed: "Nothing closed." }[state.tab];
+    list.innerHTML = `<div class="empty">${msg}</div>`; return;
+  }
+  if (state.tab === "all") { list.innerHTML = table(d.jobs, d.counts.filtered); return; }
+  list.innerHTML = d.jobs.map(card).join("");
+  for (const id of state.open) loadDetails(id);
+}
+
+const COLS = [
+  ["score", "Score"], ["title", "Role"], ["company", "Company"], ["location", "Location"],
+  ["primary_source", "Source"], ["status", "Status"], ["first_seen", "Found"], [null, "Posting"], [null, "Resume"],
+];
+
+function sortJobs(jobs) {
+  const { key, dir } = state.sort;
+  return [...jobs].sort((a, b) => {
+    let x = a[key], y = b[key];
+    if (x == null) x = key === "score" ? -1 : ""; if (y == null) y = key === "score" ? -1 : "";
+    if (typeof x === "string") return dir * x.localeCompare(y);
+    return dir * (x - y);
+  });
+}
+
+function resumeCell(j) {
+  if (j.tailor_status === "queued") return `<span class="muted">queued…</span>`;
+  if (j.tailor_status === "running") return `<span class="muted">tailoring…</span>`;
+  const btn = `<button class="ghost" data-act="tailor" data-id="${j.id}">${j.tailor_status === "failed" ? "Retry" : "Tailor"}</button>`;
+  if (j.tailor_status === "done" && j.has_pdf)
+    return `<button class="ghost" data-act="pdf" data-id="${j.id}">Open PDF</button>`;
+  return btn;
+}
+
+function statusLabel(j) {
+  if (j.status === "filtered") return `<span class="chip" title="${esc(j.filter_reason)}">filtered</span>`;
+  return `<span class="chip${j.status === "applied" || j.status === "interviewing" ? " ok" : ""}">${esc(j.status)}</span>`;
+}
+
+function table(jobs, filteredCount) {
+  const head = COLS.map(([k, label]) => k
+    ? `<th data-sort="${k}">${label} <span class="arrow">${state.sort.key === k ? (state.sort.dir < 0 ? "↓" : "↑") : ""}</span></th>`
+    : `<th class="nosort">${label}</th>`).join("");
+  const rows = sortJobs(jobs).map(j => `<tr class="${j.status === "filtered" ? "filtered" : ""}">
+    <td class="sc"><div class="score ${scoreClass(j.score)}">${j.score ?? "–"}</div></td>
+    <td><a class="role" href="/jobs/${j.id}/jd" target="_blank" title="Open job description">${esc(j.title)}</a>${j.gig ? ` <span class="chip gig" title="Contract AI-training work">AI gig</span>` : ""}</td>
+    <td>${esc(j.company)}</td>
+    <td class="muted">${esc(j.location || "")}${j.remote && !/remote/i.test(j.location || "") ? " · remote" : ""}</td>
+    <td class="muted">${esc(j.primary_source || "")}</td>
+    <td>${statusLabel(j)}</td>
+    <td class="muted">${ago(j.first_seen)}</td>
+    <td>${j.apply_url || j.url ? `<a class="ext" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</td>
+    <td>${resumeCell(j)}</td>
+  </tr>`).join("");
+  return `<div class="tablebar">
+      <span>${jobs.length} jobs</span>
+      <label class="toggle"><input type="checkbox" id="showfiltered" ${state.showFiltered ? "checked" : ""}> Include filtered-out (${filteredCount})</label>
+      <span class="spacer"></span><span>Click a role to read the full JD</span>
+    </div>
+    <div class="scroll"><table class="jobs"><thead><tr>${head}</tr></thead><tbody>${rows ||
+      `<tr><td colspan="9" class="muted" style="text-align:center;padding:40px">${state.ready ? "No tailored resumes yet. Click Tailor on a job to make one." : "No jobs yet. Run the agent to collect some."}</td></tr>`}</tbody></table></div>`;
+}
+
+function scoreClass(s) { if (s == null) return "s-none"; if (s >= 70) return "s-good"; if (s >= 50) return "s-mid"; return "s-low"; }
+
+function card(j) {
+  const chips = [];
+  j.sources.forEach(s => chips.push(`<span class="chip">${esc(s)}</span>`));
+  if (j.gig) chips.push(`<span class="chip gig" title="Contract AI-training work, not a regular engineering role">AI-training gig</span>`);
+  if (j.remote) chips.push(`<span class="chip">remote</span>`);
+  if (j.salary) chips.push(`<span class="chip">${esc(j.salary)}</span>`);
+  if (j.tailor_status === "done") chips.push(`<span class="chip ok">resume ready</span>`);
+  if (j.tailor_status === "running" || j.tailor_status === "queued") chips.push(`<span class="chip">tailoring…</span>`);
+  if (j.tailor_status === "failed") chips.push(`<span class="chip flag" title="${esc(j.tailor_error)}">tailor failed</span>`);
+  if (j.status === "interviewing") chips.push(`<span class="chip ok">interviewing</span>`);
+  if (j.follow_up) chips.push(`<span class="chip flag">follow up?</span>`);
+  if (j.skip_reason && j.status === "skipped") chips.push(`<span class="chip">${esc(j.skip_reason)}</span>`);
+  j.red_flags.forEach(f => chips.push(`<span class="chip flag">${esc(f)}</span>`));
+
+  const when = j.status === "applied" || j.status === "interviewing" ? `applied ${ago(j.applied_at)}` : `found ${ago(j.first_seen)}`;
+  return `<div class="job" id="job-${j.id}">
+    <div class="job-main">
+      <div class="score ${scoreClass(j.score)}" title="Fit score">${j.score ?? "–"}</div>
+      <div>
+        <div class="title" data-act="toggle" data-id="${j.id}">${esc(j.title)}</div>
+        <div class="sub">${esc(j.company)} · ${esc(j.location || "Location n/a")} · ${when}</div>
+        ${j.score_reasons.length ? `<ul class="reasons">${j.score_reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+        <div class="chips">${chips.join("")}</div>
+      </div>
+      <div class="actions">${actions(j)}</div>
+    </div>
+    <div class="skipbox" id="skip-${j.id}">
+      ${SKIP_REASONS.map(r => `<button class="ghost" data-act="skip" data-id="${j.id}" data-reason="${esc(r)}">${esc(r)}</button>`).join("")}
+      <input placeholder="Other reason, then Enter" data-skipinput="${j.id}">
+    </div>
+    <div class="details" id="det-${j.id}"></div>
+  </div>`;
+}
+
+function actions(j) {
+  const a = [];
+  const tailorBtn = () => j.tailor_status === "done"
+    ? `<button class="ghost" data-act="pdf" data-id="${j.id}">Resume</button>`
+    : (j.tailor_status === "running" || j.tailor_status === "queued") ? ""
+    : `<button class="ghost" data-act="tailor" data-id="${j.id}">${j.tailor_status === "failed" ? "Retry tailor" : "Tailor"}</button>`;
+  if (j.status === "active" || j.status === "opened") {
+    a.push(`<button class="primary" data-act="apply" data-id="${j.id}">Apply</button>`);
+    a.push(`<button data-act="status" data-id="${j.id}" data-status="applied">Mark applied</button>`);
+    a.push(`<button class="ghost" data-act="skipopen" data-id="${j.id}">Skip</button>`);
+    a.push(tailorBtn());
+  } else if (j.status === "applied" || j.status === "interviewing") {
+    if (j.status === "applied") a.push(`<button data-act="status" data-id="${j.id}" data-status="interviewing">Interviewing</button>`);
+    a.push(`<button class="ghost" data-act="status" data-id="${j.id}" data-status="closed" data-reason="rejected">Rejected</button>`);
+    a.push(`<button class="ghost" data-act="status" data-id="${j.id}" data-status="closed" data-reason="closed">Close</button>`);
+    if (j.tailor_status === "done") a.push(`<button class="ghost" data-act="pdf" data-id="${j.id}">Resume</button>`);
+  } else {
+    a.push(`<button class="ghost" data-act="status" data-id="${j.id}" data-status="active" data-reason="restored">Restore</button>`);
+  }
+  return a.join("");
+}
+
+async function loadDetails(id) {
+  const el = document.getElementById("det-" + id);
+  if (!el) return;
+  const d = await api("/api/jobs/" + id);
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <a href="/jobs/${id}/jd" target="_blank"><button class="ghost">Full JD page</button></a>
+      ${d.apply_url ? `<a href="${esc(d.apply_url)}" target="_blank" rel="noopener"><button class="ghost">Open posting</button></a>` : ""}
+      ${d.has_pdf ? (state.data && state.data.can_reveal === false
+        ? `<a href="/files/resume/${id}" target="_blank"><button class="ghost">Open resume PDF</button></a>`
+        : `<button class="ghost" data-act="reveal" data-id="${id}">Show resume in Finder</button>`) : ""}
+      ${d.answers ? `<button class="ghost" data-act="copy" data-id="${id}">Copy answers</button>` : ""}
+    </div>
+    <div class="desc">${esc(d.description || "No description captured.")}</div>
+    <textarea placeholder="Notes (saved when you click away)" data-notes="${id}">${esc(d.notes || "")}</textarea>
+    <div class="hist">${d.history.map(h => `${new Date(h.at).toLocaleString()} → ${esc(h.to_status)}${h.reason ? " (" + esc(h.reason) + ")" : ""}`).join("<br>")}</div>`;
+  el.classList.add("open");
+}
+
+function job(id) { return state.data.jobs.find(j => j.id === id); }
+
+async function copyAnswers(id) {
+  const d = await api("/api/jobs/" + id);
+  if (!d.answers) return false;
+  try { await navigator.clipboard.writeText(d.answers); return true; } catch { return false; }
+}
+
+document.addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]");
+  if (!th) return;
+  const k = th.dataset.sort;
+  state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : (k === "score" || k === "first_seen" ? -1 : 1) };
+  render();
+});
+document.addEventListener("change", e => {
+  if (e.target.id === "showfiltered") { state.showFiltered = e.target.checked; localSet("filtered", e.target.checked ? "1" : "0"); load(); }
+});
+
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-tab],[data-act]");
+  if (!t) return;
+  if (t.dataset.tab) { state.tab = t.dataset.tab; localSet("tab", state.tab); state.open.clear(); return load(); }
+  const id = Number(t.dataset.id);
+  try {
+    switch (t.dataset.act) {
+      case "toggle": {
+        const el = document.getElementById("det-" + id);
+        if (el.classList.contains("open")) { el.classList.remove("open"); state.open.delete(id); }
+        else { state.open.add(id); await loadDetails(id); }
+        return;
+      }
+      case "apply": {
+        const j = job(id);
+        // Copy while this page still has focus, then open the posting inside the same click
+        // so the browser doesn't block the new tab.
+        const copyP = j.answers ? navigator.clipboard.writeText(j.answers).then(() => true, () => false) : Promise.resolve(false);
+        window.open(j.apply_url || j.url, "_blank", "noopener");
+        const copied = await copyP;
+        const res = await api(`/api/jobs/${id}/apply`, {});
+        const where = res && res.revealed ? "resume shown in Finder"
+          : `resume: ${res && res.resume_pdf ? res.resume_pdf : "see Open resume PDF"}`;
+        toast(j.tailor_status === "done"
+          ? `Posting opened, ${where}${copied ? ", answers copied" : ""}`
+          : "Posting opened (no tailored resume yet)");
+        return load();
+      }
+      case "status":
+        await api(`/api/jobs/${id}/status`, { status: t.dataset.status, reason: t.dataset.reason || null });
+        toast({ applied: "Moved to Applied", active: "Back in Active", interviewing: "Marked interviewing", closed: "Moved to Closed" }[t.dataset.status] || "Updated");
+        return load();
+      case "skipopen":
+        document.getElementById("skip-" + id).classList.toggle("open");
+        document.querySelector(`[data-skipinput="${id}"]`)?.focus();
+        return;
+      case "skip":
+        await api(`/api/jobs/${id}/status`, { status: "skipped", reason: t.dataset.reason });
+        toast(NOT_AVAILABLE.test(t.dataset.reason) ? "Skipped: no longer available (the scorer won't learn from this one)"
+                                                   : "Skipped. The scorer will learn from this.");
+        return load();
+      case "tailor":
+        await api(`/api/jobs/${id}/tailor`, {});
+        toast("Queued for tailoring. Each one takes a few minutes; they run one at a time.");
+        return load();
+      case "pdf": window.open(`/files/resume/${id}`, "_blank"); return;
+      case "reveal": await api(`/api/jobs/${id}/reveal`, {}); return;
+      case "copy": toast(await copyAnswers(id) ? "Answers copied" : "Couldn't copy"); return;
+    }
+  } catch (err) { toast("Error: " + err.message.slice(0, 120)); }
+});
+
+document.addEventListener("keydown", async e => {
+  const inp = e.target.closest("[data-skipinput]");
+  if (inp && e.key === "Enter" && inp.value.trim()) {
+    await api(`/api/jobs/${inp.dataset.skipinput}/status`, { status: "skipped", reason: inp.value.trim() });
+    toast("Skipped"); load();
+  }
+});
+document.addEventListener("focusout", e => {
+  const ta = e.target.closest("[data-notes]");
+  if (ta) api(`/api/jobs/${ta.dataset.notes}/notes`, { notes: ta.value }).catch(() => toast("Couldn't save notes"));
+});
+let qTimer;
+document.getElementById("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; load(); }, 250); });
+const strong = document.getElementById("strong");
+strong.checked = state.strong;
+const ready = document.getElementById("ready");
+ready.checked = state.ready;
+ready.addEventListener("change", () => { state.ready = ready.checked; localSet("ready", ready.checked ? "1" : "0"); load(); });
+const gigs = document.getElementById("gigs");
+gigs.checked = state.gigs;
+gigs.addEventListener("change", () => { state.gigs = gigs.checked; localSet("gigs", gigs.checked ? "1" : "0"); load(); });
+strong.addEventListener("change", () => { state.strong = strong.checked; localSet("strong", strong.checked ? "1" : "0"); load(); });
+// ---- Add a job by its link
+function addForm(details, msg) {
+  const box = document.getElementById("addbox");
+  const url = document.getElementById("addurl")?.value || "";
+  box.classList.add("open");
+  box.innerHTML = `<div class="row"><b>Add a job by link</b><span class="spacer"></span>
+      <button class="ghost" id="addclose">Close</button></div>
+    <div class="row" style="margin-top:8px">
+      <input id="addurl" placeholder="https://www.linkedin.com/jobs/view/4480656222/" value="${esc(url)}">
+      ${details ? "" : `<button class="primary" id="addgo">Add</button>`}
+    </div>
+    ${details ? `<div class="grid">
+        <input id="addtitle" placeholder="Job title">
+        <input id="addcompany" placeholder="Company">
+        <input id="addloc" placeholder="Location, e.g. Dubai, UAE">
+      </div>
+      <textarea id="adddesc" placeholder="Paste the job description (used for scoring and tailoring)" style="width:100%;min-height:120px;margin-top:8px"></textarea>
+      <div class="row" style="margin-top:8px"><button class="primary" id="addsave">Save job</button></div>` : ""}
+    <div class="msg" id="addmsg">${msg || `<span class="muted">Paste the link of a job the daily searches missed. It's read, merged with any copy already here, and scored.</span>`}</div>`;
+  document.getElementById("addurl").focus();
+}
+
+async function addSubmit(payload) {
+  const m = document.getElementById("addmsg");
+  m.innerHTML = `<span class="muted">Reading the job…</span>`;
+  const r = await api("/api/jobs/add", payload);
+  if (!r.ok) { addForm(true, `<span style="color:var(--warn)">${esc(r.error)}</span>`); return; }
+  const how = r.is_new ? "Added" : `Already here (from ${esc(JSON.parse(r.merged_with || "[]").join(", ") || "another source")}), merged`;
+  addForm(false, `<span style="color:var(--good)">${how}:</span> <b>${esc(r.title)}</b> · ${esc(r.company)}
+    ${r.location ? "· " + esc(r.location) : ""} · showing the ${esc(r.source)} link.
+    ${r.scoring ? "Scoring now (about 20s)…" : ""} <a href="/jobs/${r.id}/jd" target="_blank">Open job</a>
+    ${r.rule_note ? `<div class="muted">Kept even though your filter rules say: ${esc(r.rule_note)}</div>` : ""}`);
+  document.getElementById("addurl").value = "";
+  load();
+  if (r.scoring) [12000, 30000, 60000].forEach(ms => setTimeout(load, ms));
+}
+
+document.addEventListener("click", async e => {
+  const t = e.target;
+  try {
+    if (t.id === "addbtn") addForm(false);
+    else if (t.id === "addclose") { const b = document.getElementById("addbox"); b.classList.remove("open"); b.innerHTML = ""; }
+    else if (t.id === "addgo") {
+      const url = document.getElementById("addurl").value.trim();
+      if (url) await addSubmit({ url });
+    } else if (t.id === "addsave") {
+      const v = id => document.getElementById(id).value.trim();
+      if (!v("addtitle") || !v("addcompany")) { toast("Title and company are needed"); return; }
+      await addSubmit({ url: v("addurl"), title: v("addtitle"), company: v("addcompany"),
+                        location: v("addloc"), description: v("adddesc") });
+    }
+  } catch (err) { toast("Error: " + err.message.slice(0, 120)); }
+});
+document.addEventListener("keydown", e => {
+  if (e.target.id === "addurl" && e.key === "Enter" && document.getElementById("addgo")) document.getElementById("addgo").click();
+});
+
+document.getElementById("runbtn").addEventListener("click", async () => { await api("/api/run", {}); toast("Run started"); load(); });
+
+// Refresh while something is in progress (tailoring or a run).
+setInterval(() => {
+  const d = state.data;
+  if (d && (d.running || d.jobs.some(j => j.tailor_status === "running" || j.tailor_status === "queued"))) load();
+}, 8000);
+load().catch(err => { document.getElementById("list").innerHTML = `<div class="empty">Couldn't load: ${esc(err.message)}</div>`; });
+</script>
+</body>
+</html>

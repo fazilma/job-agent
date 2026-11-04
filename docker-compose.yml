@@ -1,0 +1,31 @@
+# Start:   docker compose up -d --build
+# Logs:    docker compose logs -f
+# Stop:    docker compose down
+services:
+  jobagent:
+    build: .
+    image: jobagent:latest
+    container_name: jobagent
+    restart: unless-stopped          # comes back when Docker Desktop starts
+    env_file: .env                   # APIFY_TOKEN, CLAUDE_CODE_OAUTH_TOKEN, ...
+    environment:
+      TZ: Asia/Dubai
+      JOBAGENT_DAILY_AT: "07:30"     # daily run time (local time above)
+      # Local skill copies have no "anthropic-skills:" prefix.
+      JOBAGENT_TAILOR_SKILL: tailor-resume
+      JOBAGENT_IMPACT_SKILL: resume-impact-pass
+    ports:
+      - "127.0.0.1:8765:8765"        # dashboard: http://localhost:8765 (this Mac only)
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./.env:/app/.env:ro
+      - ./data:/app/data             # jobs.db, shared with `uv run jobagent ...` on the Mac
+      - ./logs:/app/logs
+      # Same path inside as on the Mac, so config.yaml and the PDF paths in the
+      # database work in both places.
+      - /Users/fazil/Resume:/Users/fazil/Resume
+      - claude-home:/root/.claude    # Claude Code's own state
+      - ./docker/skills:/root/.claude/skills:ro
+
+volumes:
+  claude-home:

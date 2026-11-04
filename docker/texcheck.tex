@@ -1,0 +1,27 @@
+% Build-time check: the same preamble as Backend_2026/Fazil_Backend_9Yrs.tex.
+% If the image is missing a LaTeX package, `docker compose build` fails here
+% instead of every tailoring failing later.
+\documentclass[letterpaper,10pt]{article}
+\usepackage{latexsym}
+\usepackage[margin=0.35in, top=0.3in, bottom=0.3in]{geometry}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\pagestyle{fancy}
+\fancyhf{}
+\titleformat{\section}{\scshape\raggedright\large}{}{0em}{}[\color{black}\titlerule]
+\begin{document}
+\section{Experience}
+\begin{itemize}[leftmargin=0.15in, label={}]
+  \item \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{Senior Backend Engineer} & \small Dubai \\
+  \end{tabular*}
+  \item \faEnvelope\ \href{mailto:a@b.c}{a@b.c} --- Kafka, Java, AWS, 40\% faster.
+\end{itemize}
+\end{document}

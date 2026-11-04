@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Description</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e4e2da;
+  --accent: #1f5f8b; --accent-ink: #ffffff; --good-bg: #e3f1e4; --good: #24683a;
+  --mid-bg: #fbf0d9; --mid: #8a5a07; --low-bg: #eeede8; --low: #5f5e5a; --warn-bg: #fdebe6; --warn: #a1381c; --chip: #efede6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f98; --line: #34332f;
+    --accent: #6aa9d6; --accent-ink: #0d1b26; --good-bg: #1d3323; --good: #8fd3a0; --mid-bg: #3a2c10; --mid: #f0c36a;
+    --low-bg: #2a2a27; --low: #b4b2a9; --warn-bg: #3d1f16; --warn: #f0a08a; --chip: #2b2b28; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 20px 60px; }
+a.back { color: var(--muted); text-decoration: none; font-size: 13px; }
+h1 { font-size: 22px; margin: 10px 0 2px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+button, .btn { font: inherit; font-size: 14px; cursor: pointer; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); padding: 7px 12px; text-decoration: none; display: inline-block; }
+.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
+button:disabled { opacity: .55; cursor: default; }
+.score { font-weight: 600; border-radius: 6px; padding: 4px 10px; font-variant-numeric: tabular-nums; }
+.s-good { background: var(--good-bg); color: var(--good); } .s-mid { background: var(--mid-bg); color: var(--mid); }
+.s-low, .s-none { background: var(--low-bg); color: var(--low); }
+.chip { background: var(--chip); color: var(--muted); border-radius: 4px; padding: 1px 7px; font-size: 12px; }
+.chip.flag { background: var(--warn-bg); color: var(--warn); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+.reasons { margin: 0 0 16px; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.desc { white-space: pre-wrap; font-size: 14.5px; }
+.note { color: var(--muted); font-size: 13px; }
+.err { color: var(--warn); font-size: 13px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← All jobs</a>
+  <div id="root">Loading…</div>
+</div>
+<script>
+const ID = __JOB_ID__;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const cls = s => s == null ? "s-none" : s >= 70 ? "s-good" : s >= 50 ? "s-mid" : "s-low";
+let job;
+
+async function load() {
+  job = await (await fetch(`/api/jobs/${ID}`)).json();
+  document.title = `${job.title} · ${job.company}`;
+  const busy = job.tailor_status === "queued" || job.tailor_status === "running";
+  const tailorBtn = busy
+    ? `<button disabled>${job.tailor_status === "queued" ? "Queued…" : "Tailoring… (a few minutes)"}</button>`
+    : `<button class="${job.tailor_status === "done" ? "" : "primary"}" id="tailor">${job.tailor_status === "done" ? "Re-tailor" : job.tailor_status === "failed" ? "Retry tailoring" : "Tailor resume"}</button>`;
+  document.getElementById("root").innerHTML = `
+    <h1>${esc(job.title)}</h1>
+    <div class="sub">${esc(job.company)} · ${esc(job.location || "Location n/a")}${job.salary ? " · " + esc(job.salary) : ""}</div>
+    <div class="bar">
+      <span class="score ${cls(job.score)}">${job.score ?? "–"}</span>
+      ${job.apply_url ? `<a class="btn" href="${esc(job.apply_url)}" target="_blank" rel="noopener">Open original posting ↗</a>` : ""}
+      ${tailorBtn}
+      ${job.has_pdf ? `<a class="btn" href="/files/resume/${ID}" target="_blank">Open tailored resume</a>` : ""}
+      <span class="chip">${esc(job.status)}</span>
+      ${job.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}
+      ${job.red_flags.map(f => `<span class="chip flag">${esc(f)}</span>`).join("")}
+    </div>
+    ${job.filter_reason && job.status === "filtered" ? `<p class="note">Filtered out: ${esc(job.filter_reason)}. You can still tailor for it.</p>` : ""}
+    ${job.tailor_status === "failed" ? `<p class="err">Last tailoring failed: ${esc((job.tailor_error || "").slice(0, 400))}</p>` : ""}
+    ${job.resume_dir ? `<p class="note">Folder: ${esc(job.resume_dir)}</p>` : ""}
+    <div class="panel">
+      ${job.score_reasons.length ? `<ul class="reasons">${job.score_reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+      <div class="desc">${esc(job.description || "No description was captured for this job. Use 'Open original posting'.")}</div>
+    </div>`;
+  const b = document.getElementById("tailor");
+  if (b) b.onclick = async () => { b.disabled = true; await fetch(`/api/jobs/${ID}/tailor`, { method: "POST" }); load(); };
+  if (busy) setTimeout(load, 8000);
+}
+load();
+</script>
+</body>
+</html>

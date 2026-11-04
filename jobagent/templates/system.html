@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Tracker · System</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #e4e2da;
+  --accent: #1f5f8b; --accent-ink: #ffffff;
+  --good-bg: #e3f1e4; --good: #24683a; --mid-bg: #fbf0d9; --mid: #8a5a07;
+  --warn-bg: #fdebe6; --warn: #a1381c; --chip: #efede6;
+  --radius: 8px; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f98; --line: #34332f;
+    --accent: #6aa9d6; --accent-ink: #0d1b26;
+    --good-bg: #1d3323; --good: #8fd3a0; --mid-bg: #3a2c10; --mid: #f0c36a;
+    --warn-bg: #3d1f16; --warn: #f0a08a; --chip: #2b2b28;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+.top { display: flex; align-items: center; gap: 16px; padding: 14px 0; flex-wrap: wrap; }
+h1 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+h1 a { color: inherit; text-decoration: none; }
+h1 .sep { color: var(--muted); font-weight: 400; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 10px; }
+.spacer { flex: 1; }
+.meta, .muted { color: var(--muted); }
+.meta { font-size: 12px; }
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink); padding: 6px 11px; white-space: nowrap; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 500; }
+button:disabled { opacity: .5; cursor: default; }
+main.wrap { padding-top: 16px; padding-bottom: 60px; display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+.big { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.chip { background: var(--chip); color: var(--muted); border-radius: 4px; padding: 1px 7px; font-size: 12px; }
+.chip.ok { background: var(--good-bg); color: var(--good); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.mid { background: var(--mid-bg); color: var(--mid); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 6px;
+  animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--bg); }
+tr.sub td { background: var(--bg); }
+.scroll { overflow-x: auto; }
+pre { margin: 0; font: 12px/1.45 var(--mono); background: var(--bg); border-radius: var(--radius); padding: 10px 12px;
+  max-height: 380px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.tabs { display: flex; gap: 2px; margin-bottom: 8px; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 4px 10px; color: var(--muted); }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.task { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.task:last-of-type { border-bottom: 0; }
+.task code { font: 12px var(--mono); }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+  padding: 8px 14px; border-radius: var(--radius); font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+@media (max-width: 760px) { main.wrap { grid-template-columns: 1fr; } .wrap { padding: 0 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap"><div class="top">
+    <h1><a href="/">Job Tracker</a> <span class="sep">/</span> System</h1>
+    <span class="spacer"></span>
+    <a href="/">← Back to jobs</a>
+  </div></div>
+</header>
+<main class="wrap">
+  <section class="card" id="sched"></section>
+  <section class="card" id="claude"></section>
+  <section class="card wide">
+    <div class="row" style="margin-bottom:8px"><h2 style="margin:0">Log</h2><span class="spacer"></span>
+      <span class="meta" id="logname"></span></div>
+    <div class="tabs" id="logtabs"></div>
+    <pre id="log">Loading…</pre>
+  </section>
+  <section class="card wide"><h2>Run history</h2><div class="scroll" id="runs"></div></section>
+  <section class="card wide"><h2>Claude usage, last 14 days</h2><div class="scroll" id="usage"></div></section>
+  <section class="card" id="apify"></section>
+  <section class="card" id="questions"></section>
+  <section class="card wide" id="tasks"></section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $ = id => document.getElementById(id);
+function localGet(k) { try { return localStorage.getItem("ja_" + k); } catch { return null; } }
+function localSet(k, v) { try { localStorage.setItem("ja_" + k, v); } catch {} }
+let state = { data: null, log: localGet("syslog") || "scheduled", openRun: null, taskTimer: null };
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
+const fmtTime = iso => iso ? new Date(iso).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+function dur(secs) {
+  if (secs == null) return "";
+  secs = Math.round(secs);
+  if (secs < 60) return secs + "s";
+  const m = Math.floor(secs / 60), h = Math.floor(m / 60);
+  return h ? `${h}h ${m % 60}m` : `${m}m ${secs % 60}s`;
+}
+function until(iso) {
+  const ms = new Date(iso) - new Date();
+  if (ms <= 60000) return "now";
+  return "in " + dur(ms / 1000).replace(/ \d+s$/, "");
+}
+const usd = v => (v || 0).toFixed(2);
+const short = m => (m || "?").replace(/^claude-/, "");
+
+async function load() {
+  state.data = await api("/api/system");
+  render();
+}
+
+function render() {
+  const d = state.data, s = d.schedule;
+  // ---- schedule card
+  let when;
+  if (s.kind === "none") when = `<div class="big">No daily schedule</div>
+      <div class="muted">Start the dashboard with <code>--daily 07:30</code> (Docker does this) or run <code>jobagent schedule</code> on the Mac.</div>`;
+  else when = `<div class="big">Every day at ${esc(s.at)}</div>
+      <div class="muted">${esc(s.tz)} time · ${s.kind === "docker" ? "run by this dashboard (Docker)" : "run by macOS launchd"}</div>
+      <div style="margin-top:6px">Next run: <b>${fmtTime(s.next_run)}</b> <span class="muted">your time (${until(s.next_run)})</span></div>`;
+  const runningLine = d.running
+    ? `<div style="margin-top:10px"><span class="dot"></span><b>Running now</b> <span class="muted">· ${esc(d.run.mode)} · started ${fmtTime(d.run.started)}</span></div>`
+    : `<div class="muted" style="margin-top:10px">Not running. Last run ${d.runs[0] ? fmtTime(d.runs[0].started_at) : "never"}.</div>`;
+  $("sched").innerHTML = `<h2>Daily run</h2>${when}${runningLine}
+    <div class="row" style="margin-top:12px">
+      <button class="primary" data-run="full" ${d.running ? "disabled" : ""} title="Collect, score and tailor, like the daily run">Run now</button>
+      <button data-run="no_tailor" ${d.running ? "disabled" : ""} title="Collect and score, no tailoring">Collect + score</button>
+      <button data-run="collect" ${d.running ? "disabled" : ""} title="Only collect jobs: no Claude usage">Collect only</button>
+    </div>`;
+
+  // ---- Claude / tailoring settings card
+  const t = d.tailor, st = t.states || {};
+  const failedRows = t.failed.map(f => `<tr><td><a href="/jobs/${f.id}/jd" target="_blank">${esc(f.company)} – ${esc(f.title)}</a></td>
+      <td class="muted">${esc((f.tailor_error || "").slice(0, 160))}</td></tr>`).join("");
+  const lg = d.login;
+  const failingNow = lg.last_fail && (!lg.last_ok || lg.last_fail > lg.last_ok.at);
+  const loginChip = !lg.logged_in ? `<span class="chip warn">Not logged in</span>`
+    : failingNow ? `<span class="chip warn">Login set, but last call failed</span>`
+    : `<span class="chip ok">Logged in</span>`;
+  const lastOk = lg.last_ok ? `last working call ${fmtTime(lg.last_ok.at)} (${esc(short(lg.last_ok.model))})` : "no successful call logged yet";
+  const failNote = failingNow ? ` · <span style="color:var(--warn)">last call failed ${fmtTime(lg.last_fail)}</span>` : "";
+  const loginHelp = lg.logged_in ? "" : `<div class="meta" style="margin-top:4px">Put a token from <code>claude setup-token</code> in .env as
+      <code>CLAUDE_CODE_OAUTH_TOKEN</code>, or run <code>docker compose exec -it jobagent claude auth login</code>.</div>`;
+  $("claude").innerHTML = `<h2>Claude</h2>
+    <table>
+      <tr><td class="muted">Login</td><td><div class="row">${loginChip}<span class="muted">${esc(lg.label)}</span>
+        <button id="claudetest" style="padding:2px 9px" title="Makes one tiny Haiku call">Test</button></div>
+        <div class="meta">${lastOk}${failNote}</div><div class="meta" id="testres">${state.testMsg || ""}</div>${loginHelp}</td></tr>
+      <tr><td class="muted">Scoring</td><td><b>${esc(d.scorer_model)}</b></td></tr>
+      <tr><td class="muted">Tailoring</td><td><b>${esc(t.model)}</b> · automatic for score ${t.threshold}+, at most ${t.max_per_run} per run</td></tr>
+      <tr><td class="muted">Resumes</td><td class="row">
+        <span class="chip ok">${st.done || 0} ready</span>
+        ${st.queued ? `<span class="chip mid">${st.queued} queued</span>` : ""}
+        ${st.running ? `<span class="chip mid">${st.running} running</span>` : ""}
+        ${st.failed ? `<span class="chip warn">${st.failed} failed</span>` : ""}</td></tr>
+    </table>
+    ${failedRows ? `<details style="margin-top:8px"><summary class="muted">Recent failed tailorings</summary><table>${failedRows}</table></details>` : ""}
+    <div class="meta" style="margin-top:8px">Change these in config.yaml (<code>scorer.model</code>, <code>tailor.*</code>); they apply from the next run.</div>`;
+
+  // ---- log tabs
+  $("logtabs").innerHTML = [["scheduled", "Scheduled runs"], ["manual", "Run now"], ["app", "All activity"]]
+    .map(([k, l]) => `<button class="${k === state.log ? "on" : ""}" data-log="${k}">${l}</button>`).join("");
+
+  // ---- run history
+  if (!d.runs.length) $("runs").innerHTML = `<div class="muted">No runs yet.</div>`;
+  else {
+    const rows = d.runs.map(r => {
+      const x = r.stats || {}, srcs = x.sources || {};
+      const found = Object.values(srcs).reduce((a, v) => a + (v.jobs || 0), 0);
+      const bad = Object.entries(srcs).filter(([, v]) => v.error).map(([k]) => k);
+      const off = Object.entries(srcs).filter(([, v]) => v.skipped).map(([k]) => k);
+      const probs = [...bad.map(k => `<span class="chip warn">${esc(k)}</span>`),
+        ...off.map(k => `<span class="chip" title="Skipped by the circuit breaker">${esc(k)} off</span>`),
+        x.score_error ? `<span class="chip warn">scoring</span>` : "", x.tailor_error ? `<span class="chip warn">tailoring</span>` : ""].join(" ");
+      const took = (r.finished_at ? dur((new Date(r.finished_at) - new Date(r.started_at)) / 1000) : `<span class="dot"></span>running`)
+        + (x.slept_secs ? ` <span class="chip mid" title="The computer was asleep, so the run was paused">asleep ${dur(x.slept_secs)}</span>` : "");
+      let html = `<tr class="click" data-runid="${r.id}">
+        <td>${fmtTime(r.started_at)}</td><td>${took}</td><td class="n">${found}</td><td class="n">${x.new ?? ""}</td>
+        <td class="n">${x.new_filtered ?? ""}</td><td class="n">${x.scored ?? ""}</td><td class="n">${x.tailored ?? ""}</td><td>${probs}</td></tr>`;
+      if (state.openRun === r.id) {
+        const lim = x.timeouts || {};
+        const srcRows = Object.entries(srcs).sort().map(([k, v]) =>
+          `<tr><td>${esc(k)}</td><td class="n">${v.jobs ?? ""}</td><td class="n">${dur(v.secs)}</td>
+           <td class="n muted">${lim[k] != null ? dur(lim[k]) : ""}</td><td class="muted">${esc(v.error || v.skipped || "")}</td></tr>`).join("");
+        const extra = [
+          x.merged != null ? `${x.merged} merged with jobs from other sources` : "",
+          x.refilter ? `rules re-check: ${x.refilter.dropped || 0} dropped, ${x.refilter.revived || 0} revived` : "",
+          x.auto_closed != null ? `${x.auto_closed} auto-closed (not seen lately)` : "",
+          x.enriched != null ? `${x.enriched} descriptions filled in` : "",
+          x.boards ? `career boards: checked ${x.boards.checked} employers` + (x.boards.found.length ? `, found ${esc(x.boards.found.join(", "))}` : ", none new") : "",
+          x.score_secs != null ? `scoring ${dur(x.score_secs)}` : "", x.tailor_secs != null ? `tailoring ${dur(x.tailor_secs)}` : "",
+          x.score_error ? `scoring error: ${esc(x.score_error)}` : "", x.tailor_error ? `tailoring error: ${esc(x.tailor_error)}` : "",
+        ].filter(Boolean).join(" · ");
+        html += `<tr class="sub"><td colspan="8">
+          <table><tr><th>Source</th><th class="n">Jobs</th><th class="n">Took</th><th class="n" title="Cut off after this long: 3x its usual time">Limit</th><th>Error</th></tr>${srcRows || `<tr><td colspan="5" class="muted">No sources recorded</td></tr>`}</table>
+          <div class="meta" style="margin-top:6px">${extra}</div></td></tr>`;
+      }
+      return html;
+    }).join("");
+    $("runs").innerHTML = `<table><tr><th>Started</th><th>Took</th><th class="n">Found</th><th class="n">New</th>
+      <th class="n">Filtered out</th><th class="n">Scored</th><th class="n">Tailored</th><th>Problems</th></tr>${rows}</table>
+      <div class="meta" style="margin-top:6px">Click a run for per-source details.</div>`;
+  }
+
+  // ---- usage
+  if (!d.usage.length) $("usage").innerHTML = `<div class="muted">No Claude calls logged yet.</div>`;
+  else {
+    const total = d.usage.reduce((a, r) => a + (r.cost || 0), 0);
+    const rows = d.usage.slice().reverse().map(r => `<tr><td>${esc(r.day)}</td><td>${esc(r.purpose)}</td><td>${esc(short(r.model))}</td>
+      <td class="n">${r.calls}</td><td class="n">${usd(r.cost)}</td><td class="n">${(r.tokens_in || 0).toLocaleString()}</td>
+      <td class="n">${(r.tokens_out || 0).toLocaleString()}</td><td class="n">${r.turns || 0}</td><td class="n">${dur(r.secs)}</td></tr>`).join("");
+    const top = d.costliest.map(r => `<tr><td class="n">${usd(r.cost_usd)}</td><td>${esc(short(r.model))}</td><td class="n">${r.turns || 0}</td>
+      <td class="n">${dur(r.secs)}</td><td>${esc(r.company)} – ${esc(r.title)}</td></tr>`).join("");
+    $("usage").innerHTML = `<table><tr><th>Day</th><th>What</th><th>Model</th><th class="n">Calls</th><th class="n">Est. USD</th>
+      <th class="n">Tokens in</th><th class="n">Out</th><th class="n">Steps</th><th class="n">Time</th></tr>${rows}</table>
+      <div class="meta" style="margin:6px 0 12px">Total ${usd(total)} USD. Claude Code's estimate at API prices: use it to compare, not as a bill (your plan counts the same tokens against its limit).</div>
+      ${top ? `<h2 style="font-size:13px">Most expensive tailorings</h2><table><tr><th class="n">USD</th><th>Model</th><th class="n">Steps</th><th class="n">Time</th><th>Job</th></tr>${top}</table>` : ""}`;
+  }
+
+  // ---- impact questions
+  const q = d.questions;
+  $("questions").innerHTML = `<h2>Impact questions</h2>` + (q
+    ? `<div class="row"><span class="big">${q.waiting}</span><span class="muted">waiting for your answer</span></div>
+       <div class="muted">${q.answered} answered · ${q.skipped} skipped</div>
+       <div class="meta" style="margin-top:8px">Answer them in <code>${esc(q.file)}</code>; every later tailoring uses your answers.</div>`
+    : `<div class="muted">Couldn't read the questions file.</div>`);
+
+  // ---- tasks
+  const busy = d.task.running;
+  $("tasks").innerHTML = `<h2>Maintenance</h2>` + Object.entries(d.tasks).map(([k, desc]) =>
+      `<div class="task"><div><code>jobagent ${esc(k)}</code><div class="muted">${esc(desc)}</div></div>
+       <button data-task="${k}" ${busy ? "disabled" : ""}>${busy && d.task.name === k ? "Running…" : "Run"}</button></div>`).join("")
+    + `<pre id="taskout" style="margin-top:10px;${d.task.name ? "" : "display:none"}"></pre>`;
+  if (d.task.name) loadTask();
+}
+
+if (!state.apifyLoaded) $("apify").innerHTML = `<h2>Apify budget</h2>
+  <div class="muted">Checks your spend with Apify (no cost).</div><button id="apifybtn" style="margin-top:10px">Check now</button>`;
+
+async function loadApify() {
+  $("apify").innerHTML = `<h2>Apify budget</h2><div class="muted">Asking Apify…</div>`;
+  const a = await api("/api/system/apify");
+  state.apifyLoaded = true;
+  if (!a.ok) { $("apify").innerHTML = `<h2>Apify budget</h2><div class="muted">${esc(a.error)}</div>`; return; }
+  const pct = a.budget ? Math.min(100, a.used / a.budget * 100) : 0;
+  const rows = Object.entries(a.sources).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v.usd.toFixed(3)}</td>
+     <td class="n">${v.results} × ${v.searches}</td></tr>`).join("");
+  $("apify").innerHTML = `<h2>Apify budget</h2>
+    <div class="row"><span class="big">$${a.used.toFixed(2)}</span><span class="muted">of $${a.budget.toFixed(2)} used · resets ${new Date(a.cycle_end).toLocaleDateString([], {day: "numeric", month: "short"})}</span></div>
+    <div style="height:6px;background:var(--chip);border-radius:3px;margin:8px 0"><div style="height:6px;width:${pct}%;background:var(--accent);border-radius:3px"></div></div>
+    <div class="muted">$${a.left.toFixed(2)} left over ${a.days.toFixed(1)} days → $${a.today.toFixed(3)} per run</div>
+    ${rows ? `<table style="margin-top:8px"><tr><th>Source</th><th class="n">USD per search</th><th class="n">Results × searches</th></tr>${rows}</table>` : ""}
+    <button id="apifybtn" style="margin-top:10px">Refresh</button>`;
+}
+
+async function loadLog() {
+  const l = await api(`/api/logs/${state.log}?lines=300`);
+  const pre = $("log"), atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  pre.textContent = l.text || "(empty)";
+  $("logname").textContent = "logs/" + l.name;
+  if (atBottom || !pre.dataset.seen) { pre.scrollTop = pre.scrollHeight; pre.dataset.seen = "1"; }
+}
+
+async function loadTask() {
+  const t = await api("/api/tasks");
+  const pre = $("taskout");
+  if (!pre) return;
+  pre.style.display = "";
+  pre.textContent = t.text + (t.running ? "\n…" : (t.exit ? `\n[exit ${t.exit}]` : ""));
+  pre.scrollTop = pre.scrollHeight;
+  clearTimeout(state.taskTimer);
+  if (t.running) state.taskTimer = setTimeout(loadTask, 2000);
+  else if (state.data.task.running) load();          // finished: refresh buttons
+}
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("button, tr.click");
+  if (!b) return;
+  try {
+    if (b.dataset.run) {
+      const r = await api("/api/run", { mode: b.dataset.run });
+      toast(r.already ? "A run is already going" : "Run started");
+      await load(); state.log = "manual"; localSet("syslog", "manual"); render(); loadLog();
+    } else if (b.dataset.log) {
+      state.log = b.dataset.log; localSet("syslog", state.log); $("log").dataset.seen = ""; render(); loadLog();
+    } else if (b.dataset.runid) {
+      const id = Number(b.dataset.runid); state.openRun = state.openRun === id ? null : id; render();
+    } else if (b.dataset.task) {
+      if (b.dataset.task === "rescore" && !confirm("Re-score every Active job? This uses Claude (Haiku).")) return;
+      if (b.dataset.task === "compare-scores" && !confirm("Re-score the 25 latest jobs with Sonnet to compare? Nothing is saved; it uses about $0.40 of Claude.")) return;
+      const r = await api(`/api/tasks/${b.dataset.task}`, {});
+      if (!r.ok) toast(`Wait for ${r.busy} to finish`);
+      await load();
+    } else if (b.id === "claudetest") {
+      b.disabled = true; b.textContent = "Testing…";
+      const r = await api("/api/system/claude-test", {});
+      state.testMsg = r.ok ? `<span style="color:var(--good)">Works: Claude replied "${esc(r.message)}"</span>`
+                           : `<span style="color:var(--warn)">Failed: ${esc(r.message)}</span>`;
+      await load();
+    } else if (b.id === "apifybtn") {
+      await loadApify();
+    }
+  } catch (err) { toast("Error: " + err.message.slice(0, 120)); }
+});
+
+load().then(loadLog);
+// Refresh while the page is open: often during a run, slowly otherwise.
+(function tick() {
+  setTimeout(async () => {
+    try { await load(); await loadLog(); } catch {}
+    tick();
+  }, state.data && state.data.running ? 5000 : 30000);
+})();
+</script>
+</body>
+</html>

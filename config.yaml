@@ -1,0 +1,445 @@
+# Job agent configuration. Edit freely; every run re-reads this file.
+
+paths:
+  db: data/jobs.db
+  raw_dir: data/raw # raw source payloads, kept 14 days for debugging
+  # Resume root used by the tailor-resume skill: holds Backend_2026/ and the
+  # per-company folders it creates.
+  resume_workspace: /Users/fazil/Resume
+  # Base resume (Markdown) the scorer reads to judge fit.
+  base_resume: /Users/fazil/Resume/Backend_2026/Fazil_Backend_9Yrs.md
+
+# ---------------------------------------------------------------- sources
+sources:
+  linkedin:
+    enabled: true
+    actor: valig/linkedin-jobs-scraper # ~$0.40 per 1,000 jobs
+    # Past week + skip jobs already in the tracker: catches jobs posted while your Mac
+    # was off, and you only pay Apify for jobs you haven't seen yet.
+    date_posted: r604800 # past week (r86400 = 24h, r2592000 = month)
+    limit_per_search: 150 # upper bound; the monthly budget usually sets a lower number
+    skip_known: true
+    searches:
+      - {
+          keywords: "senior software engineer",
+          location: "United Arab Emirates",
+        }
+      - {
+          keywords: "senior backend engineer",
+          location: "United Arab Emirates",
+        }
+      - { keywords: "full stack engineer", location: "United Arab Emirates" }
+      - {
+          keywords: "forward deployed engineer",
+          location: "United Arab Emirates",
+        }
+      - {
+          keywords: "implementation engineer",
+          location: "United Arab Emirates",
+        }
+      - { keywords: "java backend developer", location: "United Arab Emirates" }
+      - { keywords: "backend developer", location: "United Arab Emirates" }
+      - { keywords: "senior software engineer remote", location: "Worldwide" }
+      - { keywords: "senior backend engineer remote", location: "Worldwide" }
+      - {
+          keywords: "senior software engineer visa sponsorship",
+          location: "European Union",
+        }
+
+  # LinkedIn's public job search: free (no Apify), no login. Paste search links from your
+  # browser under `urls` (their filters are reused), or add keyword searches. Requests are
+  # spaced out so LinkedIn doesn't block them; full descriptions are read only for jobs that
+  # are new to the tracker and pass your filter.
+  linkedin_public:
+    enabled: true
+    date_posted: r604800 # past week (r86400 = 24h)
+    max_per_search: 50 # 10 per page; LinkedIn shows up to ~100 per search when logged out
+    delay_seconds: 3 # pause between requests
+    details_per_run: 60 # full descriptions read per run
+    urls:
+      - "https://www.linkedin.com/jobs/search-results/?keywords=Senior%20Backend%20Engineer&geoId=104305776"
+    searches:
+      - { keywords: "senior software engineer", location: "United Arab Emirates" }
+      - { keywords: "full stack engineer", location: "United Arab Emirates" }
+      - { keywords: "forward deployed engineer", location: "United Arab Emirates" }
+      - { keywords: "java backend developer", location: "United Arab Emirates" }
+      - { keywords: "backend developer", location: "United Arab Emirates" }
+
+  # Workable, searched across every company that uses it (jobs.workable.com): many UAE
+  # startups and mid-size companies hire through it. Free, no login.
+  workable:
+    enabled: true
+    location: "United Arab Emirates"
+    day_range: 30 # posted in the last N days
+    max_per_query: 100
+    queries:
+      - software engineer
+      - backend engineer
+      - backend developer
+      - full stack
+      - java developer
+      - python developer
+      - forward deployed engineer
+      - ai engineer
+      - software architect
+
+  # Find the Greenhouse / Lever / Ashby boards of UAE employers seen on LinkedIn, Bayt etc.,
+  # and read them every run like the companies list below. A board counts only if it lists
+  # a UAE job right now. Misses are re-checked after a month.
+  discover:
+    enabled: true
+    per_run: 40 # employers checked per run, busiest first
+    timeout_seconds: 180
+
+  bayt:
+    enabled: true
+    actor: blackfalcondata/bayt-scraper
+    max_results: 40
+    searches:
+      - { query: "senior backend engineer", country: "AE" }
+      - { query: "java developer", country: "AE" }
+      - { query: "python developer", country: "AE" }
+
+  naukrigulf:
+    enabled: true
+    actor: blackfalcondata/naukrigulf-scraper
+    max_results: 40
+    searches:
+      - { query: "senior backend developer", location: "UAE" }
+      - { query: "java spring boot", location: "UAE" }
+
+  # UAE recruitment agencies: plain HTTP + HTML parsing, no Apify (adapted from wazifa).
+  # Agencies rarely name the client, so the company shows as "<Agency> (recruiter)".
+  agencies:
+    enabled: true
+    sites:
+      [
+        hays,
+        umatr,
+        marcellis,
+        discovered,
+        halian,
+        charterhouse,
+        michaelpage,
+        salt,
+        jexdigital,
+      ]
+    max_pages: 10
+    max_detail_fetches_per_site: 40 # job pages read per site per run (new + relevant only)
+    delay_seconds: [0.8, 2.5] # pause between requests to each site
+    salt_keywords: ["software engineer", "backend", "developer", "full stack"]
+
+  weworkremotely:
+    enabled: false
+    feeds:
+      - https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss
+      - https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss
+
+  # Curated remote boards. Each job's location says who it's open to
+  # ("Remote (Worldwide)", "Remote (USA Only)"), so the location rule keeps only
+  # the ones you can take from Dubai.
+  himalayas: # only jobs open to candidates in the UAE (incl. worldwide)
+    enabled: true
+    country: AE
+    queries:
+      [
+        "software engineer",
+        "backend engineer",
+        "full stack engineer",
+        "forward deployed engineer",
+      ]
+    max_pages: 3
+
+  remotive: # software-dev category; Remotive asks for only a few calls a day
+    enabled: true
+    category: software-dev
+
+  workingnomads:
+    enabled: true
+    categories: [Development]
+
+  nodesk:
+    enabled: true
+
+  jobspresso:
+    enabled: true
+    category: developer
+
+  remoterocketship: # paid API: add REMOTEROCKETSHIP_API_KEY to .env to switch it on
+    enabled: true
+    titles:
+      [
+        "Software Engineer",
+        "Backend Engineer",
+        "Full Stack Engineer",
+        "Forward Deployed Engineer",
+      ]
+    locations: ["United Arab Emirates"]
+    seniority: [senior, expert]
+    max_pages: 2
+
+  # Open-web search through the Agent Reach CLI: free, no login. Finds postings on sites no
+  # other source reads. Only pages with real job data, posted recently, are kept. These jobs
+  # are never tailored automatically, since their text can come from any website; click Tailor.
+  web_search:
+    enabled: true
+    max_age_days: 30
+    results_per_query: 25
+    pages_per_run: 125 # enough for every result; too low and the last queries never get read
+    queries:
+      - senior backend engineer job Dubai UAE
+      - senior software engineer job Abu Dhabi UAE
+      - java developer job Dubai
+      - forward deployed engineer job UAE
+      - software engineer remote worldwide job open to Middle East
+
+  # Company career pages through their public ATS feeds (Greenhouse/Lever/Ashby).
+  # `ats: auto` tries all three. Run `jobagent check-companies` once to see which
+  # tokens resolve; fix or delete the ones that don't.
+  companies:
+    # trading / market makers / crypto infra
+    - { name: Coinbase, token: coinbase, ats: greenhouse }
+    - { name: Kraken, token: kraken.com, ats: ashby }
+    - { name: Gemini, token: gemini, ats: greenhouse }
+    - { name: Ripple, token: ripple, ats: greenhouse }
+    - { name: Chainalysis, token: chainalysis, ats: auto }
+    - { name: Fireblocks, token: fireblocks, ats: auto }
+    - { name: Anchorage Digital, token: anchorage, ats: auto }
+    - { name: Paxos, token: paxos, ats: auto }
+    - { name: Galaxy, token: galaxydigitalservices, ats: auto }
+    - { name: Talos, token: talostrading, ats: auto }
+    - { name: Wintermute, token: wintermute, ats: auto }
+    - { name: GSR, token: gsr, ats: auto }
+    - { name: Keyrock, token: keyrock, ats: auto }
+    - { name: FalconX, token: falconx, ats: auto }
+    - { name: Binance, token: binance, ats: auto }
+    - { name: Crypto.com, token: crypto, ats: auto }
+    - { name: OKX, token: okx, ats: auto }
+    - { name: Ledger, token: ledger, ats: auto }
+    - { name: Consensys, token: consensys, ats: auto }
+    # HFT / prop trading
+    - { name: Jump Trading, token: jumptrading, ats: auto }
+    - { name: Hudson River Trading, token: wehrtyou, ats: auto }
+    - { name: IMC Trading, token: imc, ats: auto }
+    - { name: Flow Traders, token: flowtraders, ats: auto }
+    - { name: Tower Research, token: towerresearchcapital, ats: auto }
+    - { name: DRW, token: drweng, ats: auto }
+    # payments / fintech (incl. Gulf)
+    - { name: Stripe, token: stripe, ats: greenhouse }
+    - { name: Adyen, token: adyen, ats: auto }
+    - { name: Checkout.com, token: checkoutcom, ats: auto }
+    - { name: Airwallex, token: airwallex, ats: auto }
+    - { name: Nium, token: nium, ats: auto }
+    - { name: Tabby, token: tabby, ats: auto }
+    - { name: Tamara, token: tamara, ats: auto }
+    - { name: Careem, token: careem, ats: auto }
+    - { name: Sarwa, token: sarwa, ats: auto }
+    - { name: Ziina, token: ziina, ats: auto }
+    # SmartRecruiters must be set explicitly (never auto-detected). countries = ISO codes.
+    - {
+        name: Delivery Hero (talabat),
+        token: DeliveryHero,
+        ats: smartrecruiters,
+        countries: [ae],
+      }
+
+# ---------------------------------------------------------------- rule filter
+# Changes here also apply to jobs already in the tracker: every run re-checks
+# active jobs (or run `jobagent refilter`). Jobs you applied to or skipped are never touched.
+filter:
+  title_include: # title must contain at least one of these
+    - software engineer
+    - software development engineer
+    - sde
+    - developer
+    - backend engineer
+    - back-end engineer
+    - back end engineer
+    - fullstack engineer
+    - full-stack engineer
+    - full stack engineer
+    - forward deployed engineer
+    - forward-deployed engineer
+    - implementation engineer
+    - java developer
+    - python developer
+    - python engineer
+    - java engineer
+    # architects on the engineering side (not solutions / security / enterprise architects)
+    - software architect
+    - backend architect
+    - back-end architect
+    - technical architect
+    - java architect
+    - application architect
+    - platform architect
+    # AI engineering roles
+    - ai engineer
+    - agentic
+    - genai engineer
+    - gen ai engineer
+    - llm engineer
+    - generative ai engineer
+    - applied ai
+  # Also keep a title that has every word of one line below, in any order, with other words
+  # between and plurals allowed: "engineer software" keeps "Senior Engineer - Software Development",
+  # "engineer backend" keeps "Senior Backend & Platform Engineer".
+  title_include_words:
+    - engineer software
+    - engineer backend
+    - engineer back-end
+    - engineer full-stack
+    - engineer fullstack
+    - developer full-stack
+    - developer fullstack
+  # Jobs from these companies are dropped (e.g. aggregators that repost other companies' jobs).
+  company_exclude:
+    - jobgether
+  title_exclude:
+    - frontend
+    - front-end
+    - front end
+    - ios
+    - android
+    - mobile
+    - intern
+    - internship
+    - junior
+    - graduate
+    - entry level
+    - qa
+    - test engineer
+    - sdet
+    - data scientist
+    - machine learning
+    - support engineer
+    - manager
+    - director
+    - head of
+    - php
+    - .net
+    - salesforce
+    - sap
+    - wordpress
+    - game
+    - unity
+  uae_terms:
+    [
+      dubai,
+      abu dhabi,
+      sharjah,
+      uae,
+      united arab emirates,
+      ajman,
+      ras al khaimah,
+    ]
+  remote_terms: [remote, anywhere, worldwide, distributed, work from home, wfh]
+  # A remote job only counts if its location is open to someone in Dubai:
+  # either just "Remote", or it names one of these. "Remote - USA" or
+  # "US - San Francisco" (even if flagged remote) is treated as that country.
+  remote_ok_regions:
+    [
+      anywhere,
+      worldwide,
+      global,
+      globally,
+      emea,
+      middle east,
+      mena,
+      gcc,
+      international,
+    ]
+  # Remote jobs whose description restricts them like this are dropped too.
+  remote_blocklist:
+    [
+      us only,
+      usa only,
+      u.s. only,
+      us-based,
+      united states only,
+      must be located in the us,
+      canada only,
+      us citizens,
+      must reside in,
+      eu only,
+      uk only,
+    ]
+  # On-site/hybrid jobs outside the UAE must mention one of these.
+  relocation_terms:
+    [
+      visa sponsorship,
+      sponsor visa,
+      sponsorship available,
+      relocation,
+      relocate,
+      relocation package,
+      visa support,
+    ]
+
+# Jobs whose source only gives a short excerpt get their posting page read once,
+# before scoring, so the scorer sees the full text (LinkedIn pages are skipped).
+enrich:
+  enabled: true
+  min_chars: 800
+  max_per_run: 40
+
+# ---------------------------------------------------------------- agents
+scorer:
+  model: haiku # cheapest model; scoring is a simple read-and-rate task
+  batch_size: 20 # more jobs per call = your resume is sent fewer times
+  max_jobs_per_run: 300
+  description_chars: 4000 # start of each posting; key lines (location, visa, authorization,
+  # experience, requirements) from the rest are always added on top
+
+tailor:
+  skill: anthropic-skills:tailor-resume # the skill Claude Code runs for each job
+  impact_skill: anthropic-skills:resume-impact-pass # runs in the same session, before the PDF
+  threshold: 80 # tailor automatically only for strong matches; click Tailor for any other job
+  max_per_run: 4 # automatic resumes per daily run (each ~30 Claude steps); click Tailor for more
+  model: sonnet # good at careful rewriting at a fraction of Opus's usage; use opus for a must-win role
+  timeout_minutes: 25
+  # Optional extras from the skill: gap_analysis, outreach_note, cover_letter
+  extras: []
+  # Also write application_answers.md (Claude's 4 short answers + the fields below).
+  write_answers: true
+
+# Filled into application_answers.md for every tailored job. Blank -> "[fill in]".
+application_profile:
+  notice_period: ""
+  current_location: "Dubai, UAE"
+  work_authorization: ""
+  expected_salary: ""
+  linkedin: ""
+  github: ""
+
+# ---------------------------------------------------------------- speed / time limits
+run:
+  require_network: true # wait for internet (e.g. after sleep) before starting
+  network_wait_seconds: 120
+  collect_timeout_minutes: 15 # the most any one source may take
+  parallel_requests: 8 # company careers pages fetched at the same time
+  timeout_factor: 3 # a step may take this many times its usual (median) time, then it's cut off
+  circuit_breaker_failures: 3 # a source failing this many runs in a row is skipped...
+  circuit_breaker_hours: 48 # ...for this long, then tried once more
+
+apify:
+  max_seconds_per_search: 240 # Apify stops a search that runs longer (normally ~35s)
+  parallel_runs: 3 # searches running on Apify at once (free plan has limited memory)
+  max_concurrent_runs: 4 # across LinkedIn + Bayt + NaukriGulf together (free plan: 5); LinkedIn goes first
+  # Monthly budget, paced from your real Apify usage before every run:
+  # today's allowance = (budget - spent - reserve) / days left until the reset,
+  # split between sources by `share`. Each search gets a hard dollar cap.
+  monthly_budget_usd: 5.0 # your free plan credit (resets on the 7th)
+  reserve_usd: 0.25 # never spent, so the account can't hit zero
+  share: { linkedin: 0.8, bayt: 0.1, naukrigulf: 0.1 }
+  fallback_usd_per_search: 0.015 # used only if Apify usage can't be read
+
+# ---------------------------------------------------------------- tracking
+tracking:
+  close_after_unseen_days: 14 # active jobs not seen again for this long -> Closed
+  follow_up_after_days: 7 # flag applied jobs for follow-up
+  raw_retention_days: 14
+
+dashboard:
+  host: 127.0.0.1
+  port: 8765
