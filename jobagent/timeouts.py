@@ -97,6 +97,8 @@ APIFY_SOURCES = {"linkedin", "bayt", "naukrigulf"}
 def source_floor(cfg, name: str) -> float:
     if name == "linkedin_public":                      # spaced-out requests plus a possible 60s rate-limit pause
         return 600
+    if name == "web_search":                           # slow or dead sites; results only return at the end
+        return 600
     if name == "career_pages":                         # grows as discovery finds more company boards
         return 300
     if name in APIFY_SOURCES:

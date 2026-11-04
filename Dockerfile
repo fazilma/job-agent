@@ -35,6 +35,13 @@ COPY jobagent ./jobagent
 RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -e .
 ENV PATH=/opt/venv/bin:$PATH
 
+# Agent Reach, for the web_search source. Pinned to the project's release: the PyPI package with
+# this name is a different project. To upgrade, change the version and its sha256.
+RUN python3 -m venv /opt/reach \
+    && /opt/reach/bin/pip install --no-cache-dir \
+       "https://github.com/Panniantong/Agent-Reach/releases/download/v1.6.1/agent-reach.zip#sha256=51443d733bcb26064262442083a8f8abf6ba5e3e7df54beebafe98c88be04a60" \
+    && ln -s /opt/reach/bin/agent-reach /usr/local/bin/agent-reach
+
 # Resume skills, as local skills (docker-compose also mounts docker/skills over this,
 # so ./docker/update-skills.sh takes effect without a rebuild).
 COPY docker/skills /root/.claude/skills

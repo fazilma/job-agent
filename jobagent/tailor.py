@@ -224,7 +224,9 @@ def tailor_one(conn, cfg, row, llm: Callable[..., str] | None = None, timeout: f
                 timeout=int(timeout or tc.get("timeout_minutes", 25) * 60),
                 extra_args=["--permission-mode", "acceptEdits",
                             "--allowedTools", *(tc.get("allowed_tools") or DEFAULT_TOOLS),
-                            "--disallowedTools", *BLOCKED_TOOLS])
+                            "--disallowedTools", *BLOCKED_TOOLS,
+                            # Its text can come from any website, so no way to send your files out.
+                            *(["WebFetch"] if '"web_search"' in (row["sources"] or "") else [])])
     except claude_cli.UsageLimitError as e:
         db.log_claude_usage(conn, "tailor", dict(claude_cli.last_usage, ok=False), row["id"])
         # Not this job's fault: put it back so the next run (or a click) retries it.

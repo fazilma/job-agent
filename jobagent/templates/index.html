@@ -252,7 +252,7 @@ function table(jobs, filteredCount) {
     <td class="muted">${esc(j.primary_source || "")}</td>
     <td>${statusLabel(j)}</td>
     <td class="muted">${ago(j.first_seen)}</td>
-    <td>${j.apply_url || j.url ? `<a class="ext" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open ↗</a>` : ""}</td>
+    <td>${j.apply_url || j.url ? `<a class="ext" href="${esc(j.apply_url || j.url)}" target="_blank" rel="noopener">Open ↗</a>${j.primary_source === "web_search" ? ` <span class="muted">${esc(new URL(j.apply_url || j.url).hostname)}</span>` : ""}` : ""}</td>
     <td>${resumeCell(j)}</td>
   </tr>`).join("");
   return `<div class="tablebar">
@@ -329,7 +329,7 @@ async function loadDetails(id) {
   el.innerHTML = `
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <a href="/jobs/${id}/jd" target="_blank"><button class="ghost">Full JD page</button></a>
-      ${d.apply_url ? `<a href="${esc(d.apply_url)}" target="_blank" rel="noopener"><button class="ghost">Open posting</button></a>` : ""}
+      ${d.apply_url ? `<a href="${esc(d.apply_url)}" target="_blank" rel="noopener"><button class="ghost">Open posting${d.primary_source === "web_search" ? ` (${esc(new URL(d.apply_url).hostname)})` : ""}</button></a>` : ""}
       ${d.has_pdf ? (state.data && state.data.can_reveal === false
         ? `<a href="/files/resume/${id}" target="_blank"><button class="ghost">Open resume PDF</button></a>`
         : `<button class="ghost" data-act="reveal" data-id="${id}">Show resume in Finder</button>`) : ""}

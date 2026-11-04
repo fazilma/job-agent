@@ -178,14 +178,13 @@ sources:
     seniority: [senior, expert]
     max_pages: 2
 
-  # Open-web search through the Agent Reach CLI: free, no login. Finds postings on sites no
+  # Open-web search through the Agent Reach CLI: no login, free up to Exa's rate limit. Finds postings on sites no
   # other source reads. Only pages with real job data, posted recently, are kept. These jobs
   # are never tailored automatically, since their text can come from any website; click Tailor.
   web_search:
     enabled: true
     max_age_days: 30
     results_per_query: 25
-    pages_per_run: 125 # enough for every result; too low and the last queries never get read
     queries:
       - senior backend engineer job Dubai UAE
       - senior software engineer job Abu Dhabi UAE

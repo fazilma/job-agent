@@ -4,7 +4,7 @@ import html
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,9 @@ def to_iso(value: Any) -> str:
         m = re.match(r"\d{4}-\d{2}-\d{2}", s)
         if m:
             return m.group(0)
+        m = re.fullmatch(r"(\d{2})-(\d{2})-(\d{4})", s)
+        if m:   # shortcut: assumes day first (Gulf sites), so an ambiguous US date reads wrong; upgrade if a US source needs it
+            return date(int(m[3]), int(m[2]), int(m[1])).isoformat()
         from email.utils import parsedate_to_datetime
         return parsedate_to_datetime(s).date().isoformat()
     except Exception:

@@ -1,11 +1,12 @@
-"""Open-web job search through the Agent Reach CLI: free, no login.
+"""Open-web job search through the Agent Reach CLI: no login, no Apify. Exa, the search service
+behind it, has a free rate limit; a search stopped by it ends that run's searching early.
 
 Finds postings on sites no other collector reads (company sites, Teamtailor, smaller boards).
 Search results are mostly noise (listing pages, dead links, old posts), so a result counts only
 if its page has a schema.org JobPosting block with a recent date.
 
 These pages come from anywhere, so their text is untrusted: db.jobs_to_tailor never tailors
-them automatically (click Tailor to run one).
+them automatically, and clicking Tailor runs them without web access (tailor.tailor_one).
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import subprocess
 from datetime import date, timedelta
 from pathlib import Path
@@ -41,25 +43,24 @@ def _search(query: str, limit: int) -> list[dict]:
         out = subprocess.run([_bin(), "web", "search", query, "--limit", str(limit)],
                              capture_output=True, text=True, timeout=90)
         data = json.loads(out.stdout)
-    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        ok, err, items = data.get("ok"), data.get("error") or {}, data.get("items") or []
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as e:
         raise RuntimeError(f"agent-reach failed: {e}") from e
-    if not data.get("ok"):
-        err = data.get("error") or {}
+    if not ok:
         raise RuntimeError(f"agent-reach {err.get('code', 'error')}: {err.get('message', '')}"[:300])
-    return data.get("items") or []
+    return items
 
 
 def is_public_url(url: str) -> bool:
     """Search results are untrusted: never let one point us at this machine or the local network."""
-    u = urlparse(url or "")
-    host = (u.hostname or "").lower()
-    if u.scheme not in ("http", "https") or not host or host == "localhost" or host.endswith(".local"):
-        return False
     try:
-        ipaddress.ip_address(host)
-        return False                    # job sites have names; a bare IP is never a posting
-    except ValueError:
-        return True                     # shortcut: redirects aren't re-checked, re-check if fetching beyond GET
+        u = urlparse(url or "")
+        if u.scheme not in ("http", "https") or not u.hostname:
+            return False
+        addrs = {i[4][0] for i in socket.getaddrinfo(u.hostname, None)}
+        return bool(addrs) and all(ipaddress.ip_address(a).is_global for a in addrs)
+    except (OSError, ValueError):       # shortcut: redirects aren't re-checked, re-check if fetching beyond GET
+        return False
 
 
 def collect(cfg, raw_dir: Path | None = None, client=None, search=_search) -> list[RawJob]:
@@ -91,21 +92,20 @@ def collect(cfg, raw_dir: Path | None = None, client=None, search=_search) -> li
     rule_cfg = cfg.section("filter", default={}) or {}
     today = date.today().isoformat()
     oldest = (date.today() - timedelta(days=int(c.get("max_age_days", 30)))).isoformat()
-    budget = int(c.get("pages_per_run", 60))
     own = client is None
     client = client or http_client()
     jobs: list[RawJob] = []
+    seen: set[tuple[str, str]] = set()
     try:
         for url, item in hits.items():
-            if budget <= 0:
-                break
-            host = (urlparse(url).hostname or "").lower()
-            if not is_public_url(url) or any(host == h or host.endswith("." + h) for h in SKIP_HOSTS):
-                continue
             # Save page reads for results that could pass the filter. Only title rules: no company yet.
             if rules.title_check(RawJob(source=SOURCE, title=item.get("title") or "", company=""), rule_cfg):
                 continue
-            budget -= 1
+            if not is_public_url(url):
+                continue
+            host = (urlparse(url).hostname or "").lower()
+            if any(host == h or host.endswith("." + h) for h in SKIP_HOSTS):
+                continue
             try:
                 r = client.get(url, timeout=10)
                 r.raise_for_status()
@@ -114,17 +114,21 @@ def collect(cfg, raw_dir: Path | None = None, client=None, search=_search) -> li
                 expires = to_iso(f.get("expires"))
                 if not posted or posted < oldest or posted > today or (expires and expires < today):
                     continue
-                if not (f.get("title") and f.get("company")):
+                if not (f.get("title") and f.get("company") and f.get("description")):
                     continue
+                title, company = f["title"].strip(), f["company"].strip()
+                key = (company.casefold(), title.casefold())
+                if key in seen:                     # the same job reposted on another site
+                    continue
+                seen.add(key)
                 loc = f.get("location") or ""
-                jobs.append(RawJob(source=SOURCE, title=f["title"].strip(), company=f["company"].strip(), location=loc,
-                                   url=url, apply_url=url, description=f.get("description") or "", posted_at=posted,
+                jobs.append(RawJob(source=SOURCE, title=title, company=company, location=loc, url=url, apply_url=url,
+                                   description=f["description"], posted_at=posted,
                                    remote=bool(f.get("remote")) or "remote" in loc.lower()))
             except Exception as e:      # page data is untrusted: one bad page must not lose the run
                 log.debug("web_search: %s failed: %s", url, e)
     finally:
         if own:
             client.close()
-    log.info("web_search: %d postings from %d results (%d pages read)",
-             len(jobs), len(hits), int(c.get("pages_per_run", 60)) - budget)
+    log.info("web_search: %d postings from %d results", len(jobs), len(hits))
     return jobs

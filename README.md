@@ -11,6 +11,7 @@ daily (Docker or launchd) ─► collectors ─► dedupe ─► rule filter ─
                            Marc Ellis, Discovered, Umatr, Jex Digital (plain HTTP)
                          Remote boards: Himalayas, Remotive, Working Nomads, NoDesk,
                            Jobspresso, Remote Rocketship (optional, paid)
+                         Open web: company sites and smaller boards (Agent Reach)
 ```
 
 Only the scorer and tailor use Claude, through the Claude Code CLI you're already
@@ -95,6 +96,18 @@ uv run jobagent check-agencies          # all nine; or e.g. `check-agencies hays
 ```
 
 A site returning 0 jobs usually means its layout changed.
+
+### Open-web search
+
+`sources.web_search` searches the web through the [Agent Reach](https://github.com/Panniantong/Agent-Reach)
+CLI, with no login, and finds postings on sites no other source reads. A page counts only if it has
+schema.org job data posted in the last `max_age_days`. The Docker image includes Agent Reach; on the
+Mac, install it yourself or the source is skipped. Search runs through Exa's free tier, so a rate limit
+can end a run's searching early, and the last queries are the ones dropped.
+
+These pages can come from anywhere, so their text is untrusted. They are never tailored automatically:
+click Tailor to run one, and that run has no web access. Their text never replaces a description you
+already have, and the dashboard shows the site name next to the link. Check it before you apply.
 
 ### Remote boards
 
